@@ -1,0 +1,32 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: bookvexe-payment-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bookvexedb_j2e
+    username: root
+    password: nopass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  sql:
+    init:
+      mode: never
+server:
+  port: 8084
+
+vnpay:
+  tmnCode: "demo-tmn"
+  hashSecret: "demo-secret"
+  payUrl: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+  returnUrl: "http://localhost:8084/api/vnpay-return"
+  ipnUrl: "http://localhost:8084/api/vnpay-ipn"
+  frontendReturnUrl: "http://localhost:3000/payment/return"
