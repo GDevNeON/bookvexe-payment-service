@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bookvexe-payment-service
+spec:
+  selector:
+    app: bookvexe-payment-service
+  ports:
+    - protocol: TCP
+      port: 5183
+      targetPort: 5183
