@@ -16,14 +16,14 @@ import java.util.UUID;
 public class WebSocketService {
 
     private final KafkaProducerService kafkaProducerService;
-    private final CoreDataService coreDataService; // New Dependency
+    private final CoreDataService coreDataService;
 
     /**
      * Low-level function to notify a user via Kafka.
      * The Core Service is responsible for consuming this message and delivering it
      * to the user's active WebSocket session.
      */
-    private void notifyUser(UUID userId, String eventType) {
+    public void notifyUser(UUID userId, String eventType) {
         if (userId == null) {
             log.warn("Attempted to send notification with null userId. EventType: {}", eventType);
             return;
@@ -39,17 +39,16 @@ public class WebSocketService {
      * It uses CoreDataService to look up the userId based on the bookingId.
      */
     public void notifyUserByBookingId(UUID bookingId, String eventType) {
-        coreDataService.getBookingContextInfo(bookingId)
-            .ifPresentOrElse(info -> {
-                UUID userId = info.userId();
-                if (userId != null) {
-                    // Send notification to the user ID found in the Core DB
-                    notifyUser(userId, eventType);
-                } else {
-                    log.warn("Booking {} has no associated UserDbModel (userId) for notification.", bookingId);
-                }
-            }, () -> {
-                log.warn("Attempted to send notification for non-existent booking ID: {}", bookingId);
-            });
+        coreDataService.getBookingContextInfo(bookingId).ifPresentOrElse(info -> {
+            UUID userId = info.userId();
+            if (userId != null) {
+                // Send notification to the user ID found in the Core DB
+                notifyUser(userId, eventType);
+            } else {
+                log.warn("Booking {} has no associated UserDbModel (userId) for notification.", bookingId);
+            }
+        }, () -> {
+            log.warn("Attempted to send notification for non-existent booking ID: {}", bookingId);
+        });
     }
 }
