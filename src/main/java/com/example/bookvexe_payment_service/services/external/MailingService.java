@@ -1,11 +1,10 @@
 package com.example.bookvexe_payment_service.services.external;
 
 import com.example.bookvexe_payment_service.models.dto.kafka.MailKafkaDTO;
+import com.example.bookvexe_payment_service.services.core.CoreDataService;
 import com.example.bookvexe_payment_service.services.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -16,9 +15,31 @@ import java.util.UUID;
 @Slf4j
 public class MailingService {
     private final KafkaProducerService kafkaProducerService;
+    private final CoreDataService coreDataService; // New Dependency
 
+    /**
+     * Public method to send an email to an explicit address.
+     */
     public void sendEmail(String toEmail, String subject, String body) {
         sendMailRequestToKafka(toEmail, subject, body);
+    }
+
+    /**
+     * High-level function to send an email to the customer associated with a Booking.
+     * It relies on CoreDataService to look up the email address.
+     */
+    public void sendEmailByBookingId(UUID bookingId, String subject, String body) {
+        coreDataService.getBookingContextInfo(bookingId)
+            .ifPresentOrElse(info -> {
+                String email = info.customerEmail();
+                if (email != null && !email.isBlank()) {
+                    sendMailRequestToKafka(email, subject, body);
+                } else {
+                    log.warn("Booking {} has no associated customer email for sending.", bookingId);
+                }
+            }, () -> {
+                log.warn("Attempted to send email for non-existent booking ID: {}", bookingId);
+            });
     }
 
 
@@ -33,31 +54,5 @@ public class MailingService {
         ));
         log.info("Successfully sent email request to mail service through Kafka. To: {}, Subject: {}", toEmail,
             subject);
-    }
-
-    public void sendEmailToUser(UUID userId, String subject, String body) {
-        userRepository.findById(userId)
-            .ifPresentOrElse(user -> {
-                String email = getUserEmail(user);
-                if (email != null) {
-                    sendMailRequestToKafka(email, subject, body);
-                } else {
-                    log.warn("User {} has no associated email address (Customer/Employee) for sending.", userId);
-                }
-            }, () -> {
-                log.warn("Attempted to send email to non-existent user ID: {}", userId);
-            });
-    }
-
-    private String getUserEmail(UserDbModel user) {
-        if (user.getCustomer() != null) {
-            return user.getCustomer()
-                .getEmail();
-        }
-        if (user.getEmployee() != null) {
-            return user.getEmployee()
-                .getEmail();
-        }
-        return null;
     }
 }
