@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bookvexe-payment-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bookvexe-payment-service
+  template:
+    metadata:
+      labels:
+        app: bookvexe-payment-service
+    spec:
+      containers:
+        - name: bookvexe-payment-service
+          image: bookvexe-payment-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5183
