@@ -7,6 +7,8 @@ import com.example.bookvexe_payment_service.models.db.NotificationTypeDbModel;
 import com.example.bookvexe_payment_service.models.dto.notification.NotificationResponse;
 import com.example.bookvexe_payment_service.repositories.notification.NotificationRepository;
 import com.example.bookvexe_payment_service.repositories.notification.NotificationTypeRepository;
+import com.example.bookvexe_payment_service.services.external.MailingService;
+import com.example.bookvexe_payment_service.services.external.WebSocketService;
 import com.example.bookvexe_payment_service.services.payment.NotificationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

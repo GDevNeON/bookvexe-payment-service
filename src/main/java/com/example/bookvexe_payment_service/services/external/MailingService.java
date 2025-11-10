@@ -31,11 +31,23 @@ public class MailingService {
     public void sendEmailByBookingId(UUID bookingId, String subject, String body) {
         coreDataService.getBookingContextInfo(bookingId)
             .ifPresentOrElse(info -> {
+
+                // 1. Prioritize Customer Email
                 String email = info.customerEmail();
+                String source = "customer";
+
+                // 2. Fallback to Employee Email if Customer Email is missing/blank
+                if (email == null || email.isBlank()) {
+                    email = info.employeeEmail();
+                    source = "employee";
+                }
+
                 if (email != null && !email.isBlank()) {
                     sendMailRequestToKafka(email, subject, body);
+                    log.info("Email request sent for booking {} using {} email: {}", bookingId, source, email);
                 } else {
-                    log.warn("Booking {} has no associated customer email for sending.", bookingId);
+                    // Both customer and employee emails are missing/blank
+                    log.warn("Booking {} has no associated customer or employee email for sending.", bookingId);
                 }
             }, () -> {
                 log.warn("Attempted to send email for non-existent booking ID: {}", bookingId);
