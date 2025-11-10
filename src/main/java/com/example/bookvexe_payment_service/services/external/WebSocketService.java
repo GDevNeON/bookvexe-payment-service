@@ -1,4 +1,4 @@
-package org.example.bookvexebej2e.services.external;
+package com.example.bookvexe_payment_service.services.external;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

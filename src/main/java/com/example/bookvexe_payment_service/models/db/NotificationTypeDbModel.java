@@ -1,4 +1,4 @@
-package org.example.bookvexebej2e.models.db;
+package com.example.bookvexe_payment_service.models.db;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

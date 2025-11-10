@@ -1,4 +1,4 @@
-package org.example.bookvexebej2e.models.dto.kafka;
+package com.example.bookvexe_payment_service.models.dto.kafka;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

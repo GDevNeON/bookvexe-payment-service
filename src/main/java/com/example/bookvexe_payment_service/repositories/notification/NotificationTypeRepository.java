@@ -1,8 +1,8 @@
-package org.example.bookvexebej2e.repositories.notification;
+package com.example.bookvexe_payment_service.repositories.notification;
 
 
-import org.example.bookvexebej2e.models.db.NotificationTypeDbModel;
-import org.example.bookvexebej2e.repositories.base.BaseRepository;
+import com.example.bookvexe_payment_service.models.db.NotificationTypeDbModel;
+import com.example.bookvexe_payment_service.repositories.base.BaseRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;

@@ -1,9 +1,10 @@
-package org.example.bookvexebej2e.models.db;
+package com.example.bookvexe_payment_service.models.db;
 
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "notifications")
@@ -13,17 +14,14 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @ToString
 public class NotificationDbModel extends BaseModel {
-    @ManyToOne
-    @JoinColumn(name = "userId")
-    private UserDbModel user;
+    @Column(name = "userId")
+    private UUID userId;
 
-    @ManyToOne
-    @JoinColumn(name = "bookingId", nullable = true)
-    private BookingDbModel booking;
+    @Column(name = "bookingId", nullable = true)
+    private UUID bookingId;
 
-    @ManyToOne
-    @JoinColumn(name = "tripId", nullable = true)
-    private TripDbModel trip;
+    @Column(name = "tripId", nullable = true)
+    private UUID tripId;
 
     @ManyToOne
     @JoinColumn(name = "typeId", nullable = true)

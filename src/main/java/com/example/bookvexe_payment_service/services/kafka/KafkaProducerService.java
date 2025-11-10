@@ -1,10 +1,10 @@
-package org.example.bookvexebej2e.services.kafka;
+package com.example.bookvexe_payment_service.services.kafka;
 
+import com.example.bookvexe_payment_service.configs.KafkaTopicConfig;
+import com.example.bookvexe_payment_service.models.dto.kafka.MailKafkaDTO;
+import com.example.bookvexe_payment_service.models.dto.kafka.NotificationKafkaDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.bookvexebej2e.configs.KafkaTopicConfig;
-import org.example.bookvexebej2e.models.dto.kafka.MailKafkaDTO;
-import org.example.bookvexebej2e.models.dto.kafka.NotificationKafkaDTO;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
