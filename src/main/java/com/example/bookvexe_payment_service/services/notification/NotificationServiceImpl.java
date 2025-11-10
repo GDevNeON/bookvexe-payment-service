@@ -4,7 +4,8 @@ import com.example.bookvexe_payment_service.exceptions.ResourceNotFoundException
 import com.example.bookvexe_payment_service.mappers.NotificationMapper;
 import com.example.bookvexe_payment_service.models.db.NotificationDbModel;
 import com.example.bookvexe_payment_service.models.db.NotificationTypeDbModel;
-import com.example.bookvexe_payment_service.models.dto.booking.BookingContextInfo;
+import com.example.bookvexe_payment_service.models.dto.context.BookingContextInfo;
+import com.example.bookvexe_payment_service.models.dto.context.UserContextInfo;
 import com.example.bookvexe_payment_service.models.dto.notification.NotificationResponse;
 import com.example.bookvexe_payment_service.repositories.notification.NotificationRepository;
 import com.example.bookvexe_payment_service.repositories.notification.NotificationTypeRepository;
@@ -33,13 +34,25 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Transactional
     public NotificationResponse sendNotification(UUID userId, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave) {
-        return sendNotificationInternal(userId, null, typeCode, title, message, bookingId, tripId, channel, sendEmail, shouldSave, Optional.empty());
-    }
+        // For payment service, when no explicit email is provided but sendEmail is true,
+        // we need to fetch the email from CoreDataService if bookingId is available
+        Optional<BookingContextInfo> contextOpt = Optional.empty();
 
+        if (Boolean.TRUE.equals(sendEmail) && bookingId != null) {
+            contextOpt = coreDataService.getBookingContextInfo(bookingId);
+            if (contextOpt.isEmpty()) {
+                log.warn("Booking {} not found when trying to fetch email for notification", bookingId);
+            }
+        }
+
+        return sendNotificationInternal(userId, null, typeCode, title, message, bookingId, tripId, channel, sendEmail, shouldSave, contextOpt);
+    }
 
     @Transactional
     public NotificationResponse sendNotification(UUID userId, String toEmail, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave) {
-        return sendNotificationInternal(userId, toEmail, typeCode, title, message, bookingId, tripId, channel, sendEmail, shouldSave, Optional.empty());
+        // If explicit email is provided, we don't need to fetch context for email
+        Optional<BookingContextInfo> contextOpt = Optional.empty();
+        return sendNotificationInternal(userId, toEmail, typeCode, title, message, bookingId, tripId, channel, sendEmail, shouldSave, contextOpt);
     }
 
     // -------------------------------------------------------------
@@ -74,57 +87,64 @@ public class NotificationServiceImpl implements NotificationService {
         );
     }
 
-    private NotificationResponse sendNotificationInternal(UUID userId, String toEmail, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave, Optional<BookingContextInfo> contextOpt // Context for dynamic email/ID lookup
-    ) {
+    private NotificationResponse sendNotificationInternal(UUID userId, String toEmail, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave, Optional<BookingContextInfo> contextOpt) {
 
         NotificationDbModel entity;
 
         if (Boolean.TRUE.equals(shouldSave)) {
-            // 1. Save Notification (Persistence)
             entity = saveNotification(userId, typeCode, title, message, bookingId, tripId, channel);
             log.info("Notification saved and sent to user {}. ID: {}", userId, entity.getId());
         } else {
-            // 1b. Create unsaved entity for response and logging (No Persistence)
             entity = createUnsavedNotification(userId, typeCode, title, message, bookingId, tripId, channel);
             log.info("DEBUG Notification created (unsaved) and sent to user {}.", userId);
         }
 
-        // 2. Send Email if requested
+        // Enhanced email handling for payment service
         if (Boolean.TRUE.equals(sendEmail)) {
-
             String finalRecipientEmail = toEmail;
 
+            // If no explicit email provided, try to resolve it
             if (finalRecipientEmail == null || finalRecipientEmail.isBlank()) {
-                // If no explicit 'toEmail' override, look up the email via context info (if available)
-                if (contextOpt.isPresent()) {
-                    BookingContextInfo info = contextOpt.get();
-
-                    // Priority check: 1. Customer Email, 2. Employee Email
-                    finalRecipientEmail = info.customerEmail();
-                    if (finalRecipientEmail == null || finalRecipientEmail.isBlank()) {
-                        finalRecipientEmail = info.employeeEmail();
-                    }
-
-                    if (finalRecipientEmail == null || finalRecipientEmail.isBlank()) {
-                        log.warn("Cannot find customer/employee email for Booking {} in context. Email skipped.", bookingId);
-                    }
-                } else {
-                    // This branch is hit by the legacy `sendNotification(userId, ...)` calls.
-                    // The original `mailingService.sendEmailToUser(userId, ...)` is no longer supported.
-                    log.error("Email requested but neither 'toEmail' nor 'BookingContextInfo' was provided for user {}. Email skipped.", userId);
-                }
+                finalRecipientEmail = resolveRecipientEmail(userId, bookingId, contextOpt);
             }
 
             if (finalRecipientEmail != null && !finalRecipientEmail.isBlank()) {
                 mailingService.sendEmail(finalRecipientEmail, title, message);
+                log.info("Email sent to: {}", finalRecipientEmail);
+            } else {
+                log.warn("Email requested but no recipient email could be resolved for user {} and booking {}", userId, bookingId);
             }
         }
 
-        // 3. Ping Frontend via WebSocket (relies on the Kafka implementation in WebSocketService)
-        // This relies on the target userId fetched from the context or provided directly.
         webSocketService.notifyUser(userId, "NEW_NOTIFICATION");
-
         return notificationMapper.toResponse(entity);
+    }
+
+    /**
+     * Resolves recipient email by trying multiple sources in priority order
+     */
+    private String resolveRecipientEmail(UUID userId, UUID bookingId, Optional<BookingContextInfo> contextOpt) {
+        // If we already have context info from a previous call, use it
+        if (contextOpt.isPresent()) {
+            String email = contextOpt.get().getBestEmail();
+            if (email != null && !email.isBlank()) {
+                return email;
+            }
+        }
+
+        // If no context but we have userId or bookingId, try to fetch user context
+        if (userId != null || bookingId != null) {
+            Optional<UserContextInfo> userContext = coreDataService.getUserContextInfo(userId, bookingId);
+            if (userContext.isPresent()) {
+                String email = userContext.get().getBestEmail();
+                if (email != null && !email.isBlank()) {
+                    return email;
+                }
+            }
+        }
+
+        log.warn("Could not resolve email for user {} with booking {}", userId, bookingId);
+        return null;
     }
 
     // Helper for unsaved response

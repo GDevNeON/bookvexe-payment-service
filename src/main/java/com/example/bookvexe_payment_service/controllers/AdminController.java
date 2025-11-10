@@ -25,43 +25,47 @@ public class AdminController {
     }
 
     @PostMapping("/test-notification")
-    public Map<String, Object> testNotificationUnified(@RequestParam(required = true) UUID userId, // Target user ID
-                                                       @RequestParam(required = false) String toEmail, // Email override (optional)
-                                                       @RequestParam(required = false, defaultValue = "TEST_NOTIFICATION") String typeCode, @RequestParam(required = false, defaultValue = "false") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false) UUID bookingId, @RequestParam(required = false) UUID tripId, @RequestParam(required = false, defaultValue = "CHANNEL_TEST") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave // Control persistence
-    ) {
+    public Map<String, Object> testNotificationUnified(@RequestParam(required = false) UUID userId, @RequestParam(required = false) String toEmail, @RequestParam(required = false, defaultValue = "TEST_NOTIFICATION") String typeCode, @RequestParam(required = false, defaultValue = "false") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false) UUID bookingId, @RequestParam(required = false) UUID tripId, @RequestParam(required = false, defaultValue = "CHANNEL_TEST") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave) {
 
-        // 2. Prepare content
+//        UUID authenticatedUserId = getAuthenticatedUserId(authentication);
+        UUID authenticatedUserId = userId;
+        UUID targetUserId = userId != null ? userId : authenticatedUserId;
+
         String notificationTitle = title != null ? title : "Test Notification - " + typeCode;
         String notificationMessage = message != null ? message : "Notification Type: " + typeCode + (toEmail != null ? " | Email Override: " + toEmail : "") + " | Time: " + LocalDateTime.now();
 
-        // 3. Determine which method to call
         try {
             NotificationResponse response;
             String emailDetail = "N/A";
+            String emailResolution = "not requested";
 
-            if (Boolean.TRUE.equals(sendEmail) && toEmail != null && !toEmail.isBlank()) {
-                response = notificationService.sendNotification(userId, toEmail, // Use the explicit email
-                    typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, true, shouldSave);
-                emailDetail = "Sent to Override: " + toEmail;
-
+            if (Boolean.TRUE.equals(sendEmail)) {
+                if (toEmail != null && !toEmail.isBlank()) {
+                    response = notificationService.sendNotification(targetUserId, toEmail, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, true, shouldSave);
+                    emailDetail = "Sent to Override: " + toEmail;
+                    emailResolution = "explicit_email";
+                } else {
+                    response = notificationService.sendNotification(targetUserId, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, true, shouldSave);
+                    emailDetail = "Resolved from available sources";
+                    emailResolution = "auto_resolved";
+                }
             } else {
-                response = notificationService.sendNotification(userId, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, sendEmail, // Use the parameter value
-                    shouldSave);
-                emailDetail = Boolean.TRUE.equals(sendEmail) ? "Sent via User Lookup" : "Email disabled";
+                response = notificationService.sendNotification(targetUserId, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, false, shouldSave);
+                emailDetail = "Email disabled";
+                emailResolution = "disabled";
             }
 
-            return Map.of("status", "success", "message", "Notification sent successfully", "notification", response, "details", Map.of("targetUserId", userId, "typeCode", typeCode, "sendEmailMode", emailDetail, "savedToDB", shouldSave));
+            return Map.of("status", "success", "message", "Notification sent successfully", "notification", response, "details", Map.of("targetUserId", targetUserId, "typeCode", typeCode, "sendEmailMode", emailDetail, "emailResolution", emailResolution, "savedToDB", shouldSave));
 
         } catch (Exception e) {
-            log.error("Failed to send notification for user {}: {}", userId, e.getMessage(), e);
+            log.error("Failed to send notification for user {}: {}", targetUserId, e.getMessage(), e);
             return Map.of("status", "error", "message", "Failed to send notification: " + e.getMessage());
         }
     }
 
 
     @PostMapping("/test-notification-by-booking")
-    public Map<String, Object> testNotificationByBooking(@RequestParam(required = true) UUID bookingId, // REQUIRED: Booking ID to fetch context
-                                                         @RequestParam(required = false, defaultValue = "BOOKING_STATUS") String typeCode, @RequestParam(required = false, defaultValue = "true") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false, defaultValue = "CHANNEL_BOOKING") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave // Control persistence
+    public Map<String, Object> testNotificationByBooking(@RequestParam(required = true) UUID bookingId, @RequestParam(required = false, defaultValue = "BOOKING_STATUS") String typeCode, @RequestParam(required = false, defaultValue = "true") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false, defaultValue = "CHANNEL_BOOKING") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave // Control persistence
     ) {
         // 2. Prepare content
         String notificationTitle = title != null ? title : "Booking Status Update - " + typeCode;
