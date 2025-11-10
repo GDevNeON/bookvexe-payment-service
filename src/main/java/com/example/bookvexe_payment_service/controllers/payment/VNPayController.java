@@ -15,7 +15,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping({"/api", ""})
 public class VNPayController {
 
     @Value("${vnpay.tmnCode}")
@@ -66,7 +66,7 @@ public class VNPayController {
         return response;
     }
 
-    @GetMapping("/vnpay-return")
+    @GetMapping({"/vnpay-return", "/vnpay-return/"})
     public ResponseEntity<Void> handleReturn(HttpServletRequest request) {
         Map<String, String> params = new HashMap<>();
         for (Enumeration<String> paramNames = request.getParameterNames(); paramNames.hasMoreElements();) {
@@ -108,7 +108,7 @@ public class VNPayController {
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
     }
 
-    @PostMapping("/vnpay-ipn")
+    @PostMapping({"/vnpay-ipn", "/vnpay-ipn/"})
     public String handleIpn(HttpServletRequest request) {
         return "responseCode=00";
     }
