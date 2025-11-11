@@ -108,7 +108,7 @@ public class VNPayController {
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
     }
 
-    @PostMapping({"/vnpay-ipn", "/vnpay-ipn/"})
+    @RequestMapping(value = {"/vnpay-ipn", "/vnpay-ipn/"}, method = {RequestMethod.GET, RequestMethod.POST})
     public String handleIpn(HttpServletRequest request) {
         return "responseCode=00";
     }
