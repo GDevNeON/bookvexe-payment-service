@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,7 +40,7 @@ public class AdminController {
             String emailResolution = "not requested";
             String userType = "authenticated";
 
-            // NEW: Handle guest scenario
+            // Handle guest scenario
             if (targetUserId == null) {
                 userType = "guest";
                 response = notificationService.sendGuestNotification(toEmail, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, sendEmail, shouldSave);
@@ -63,7 +64,23 @@ public class AdminController {
                 emailResolution = "disabled";
             }
 
-            return Map.of("status", "success", "message", "Notification sent successfully", "notification", response, "details", Map.of("userType", userType, "targetUserId", targetUserId, "typeCode", typeCode, "sendEmailMode", emailDetail, "emailResolution", emailResolution, "savedToDB", shouldSave));
+            // FIX: Use HashMap for payment service too
+            Map<String, Object> result = new HashMap<>();
+            result.put("status", "success");
+            result.put("message", "Notification sent successfully");
+            result.put("notification", response);
+
+            Map<String, Object> details = new HashMap<>();
+            details.put("userType", userType);
+            details.put("targetUserId", targetUserId); // Can be null
+            details.put("typeCode", typeCode);
+            details.put("sendEmailMode", emailDetail);
+            details.put("emailResolution", emailResolution);
+            details.put("savedToDB", shouldSave);
+
+            result.put("details", details);
+
+            return result;
 
         } catch (Exception e) {
             log.error("Failed to send notification for user {}: {}", targetUserId, e.getMessage(), e);
@@ -71,9 +88,8 @@ public class AdminController {
         }
     }
 
-    // NEW: Add guest notification test for payment service
     @PostMapping("/test-guest-notification")
-    public Map<String, Object> testGuestNotification(@RequestParam(required = false) String toEmail, @RequestParam(required = false, defaultValue = "PAYMENT_GUEST_NOTIFICATION") String typeCode, @RequestParam(required = false, defaultValue = "true") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false) UUID bookingId, @RequestParam(required = false) UUID tripId, @RequestParam(required = false, defaultValue = "EMAIL") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave) {
+    public Map<String, Object> testGuestNotification(@RequestParam(required = false) String toEmail, @RequestParam(required = false, defaultValue = "TEST_NOTIFICATION") String typeCode, @RequestParam(required = false, defaultValue = "true") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false) UUID bookingId, @RequestParam(required = false) UUID tripId, @RequestParam(required = false, defaultValue = "EMAIL") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave) {
 
         String notificationTitle = title != null ? title : "Payment Guest Test - " + typeCode;
         String notificationMessage = message != null ? message : "Payment Guest Notification Type: " + typeCode + " | Time: " + LocalDateTime.now();
@@ -83,7 +99,24 @@ public class AdminController {
 
             String emailDetail = Boolean.TRUE.equals(sendEmail) ? (toEmail != null ? "Sent to: " + toEmail : "Attempted booking lookup") : "Email disabled";
 
-            return Map.of("status", "success", "message", "Guest payment notification sent successfully", "notification", response, "details", Map.of("userType", "guest", "toEmail", toEmail != null ? toEmail : "not provided", "typeCode", typeCode, "sendEmailMode", emailDetail, "savedToDB", shouldSave, "bookingId", bookingId, "note", "Guest payment notifications cannot be saved to DB or use WebSocket"));
+            // FIX: Use HashMap
+            Map<String, Object> result = new HashMap<>();
+            result.put("status", "success");
+            result.put("message", "Guest payment notification sent successfully");
+            result.put("notification", response);
+
+            Map<String, Object> details = new HashMap<>();
+            details.put("userType", "guest");
+            details.put("toEmail", toEmail != null ? toEmail : "not provided");
+            details.put("typeCode", typeCode);
+            details.put("sendEmailMode", emailDetail);
+            details.put("savedToDB", shouldSave);
+            details.put("bookingId", bookingId);
+            details.put("note", "Guest payment notifications cannot be saved to DB or use WebSocket");
+
+            result.put("details", details);
+
+            return result;
 
         } catch (Exception e) {
             log.error("Failed to send guest payment notification: {}", e.getMessage(), e);
@@ -91,27 +124,36 @@ public class AdminController {
         }
     }
 
-
     @PostMapping("/test-notification-by-booking")
-    public Map<String, Object> testNotificationByBooking(@RequestParam(required = true) UUID bookingId, @RequestParam(required = false, defaultValue = "BOOKING_STATUS") String typeCode, @RequestParam(required = false, defaultValue = "true") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false, defaultValue = "CHANNEL_BOOKING") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave // Control persistence
-    ) {
-        // 2. Prepare content
+    public Map<String, Object> testNotificationByBooking(@RequestParam(required = true) UUID bookingId, @RequestParam(required = false, defaultValue = "BOOKING_STATUS") String typeCode, @RequestParam(required = false, defaultValue = "true") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false, defaultValue = "CHANNEL_BOOKING") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave) {
+
         String notificationTitle = title != null ? title : "Booking Status Update - " + typeCode;
         String notificationMessage = message != null ? message : "Notification for Booking ID: " + bookingId + " | Type: " + typeCode + " | Time: " + LocalDateTime.now();
 
-        // 3. Call the new high-level service method
         try {
             NotificationResponse response = notificationService.sendNotificationByBookingId(typeCode, notificationTitle, notificationMessage, bookingId, channel, sendEmail, shouldSave);
 
             String emailDetail = Boolean.TRUE.equals(sendEmail) ? "Attempted via Customer/Employee Lookup" : "Email disabled";
 
+            // FIX: Use HashMap here too
+            Map<String, Object> result = new HashMap<>();
+            result.put("status", "success");
+            result.put("message", "Notification sent successfully (via Booking ID lookup)");
+            result.put("notification", response);
 
-            return Map.of("status", "success", "message", "Notification sent successfully (via Booking ID lookup)", "notification", response, "details", Map.of("bookingId", bookingId, "typeCode", typeCode, "sendEmailMode", emailDetail, "savedToDB", shouldSave));
+            Map<String, Object> details = new HashMap<>();
+            details.put("bookingId", bookingId);
+            details.put("typeCode", typeCode);
+            details.put("sendEmailMode", emailDetail);
+            details.put("savedToDB", shouldSave);
+
+            result.put("details", details);
+
+            return result;
 
         } catch (Exception e) {
             log.error("Failed to send notification for booking {}: {}", bookingId, e.getMessage(), e);
             return Map.of("status", "error", "message", "Failed to send notification: " + e.getMessage());
         }
     }
-
 }
