@@ -32,6 +32,9 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final CoreDataService coreDataService;
 
+    /**
+     * Enhanced method that handles guest users
+     */
     @Transactional
     public NotificationResponse sendNotification(UUID userId, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave) {
         // For payment service, when no explicit email is provided but sendEmail is true,
@@ -54,6 +57,47 @@ public class NotificationServiceImpl implements NotificationService {
         Optional<BookingContextInfo> contextOpt = Optional.empty();
         return sendNotificationInternal(userId, toEmail, typeCode, title, message, bookingId, tripId, channel, sendEmail, shouldSave, contextOpt);
     }
+
+    /**
+     * NEW: Guest-friendly notification method for payment service
+     */
+    @Transactional
+    public NotificationResponse sendGuestNotification(String toEmail, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave) {
+
+        log.info("Sending guest payment notification for booking {} with email {}", bookingId, toEmail);
+
+        // For guest notifications, we cannot save to DB or send WebSocket
+        if (Boolean.TRUE.equals(shouldSave)) {
+            log.warn("Cannot save guest notification without user ID. Skipping database save.");
+            shouldSave = false;
+        }
+
+        // Create temporary notification
+        NotificationDbModel entity = createGuestNotification(typeCode, title, message, bookingId, tripId, channel);
+
+        // Handle email if requested
+        if (Boolean.TRUE.equals(sendEmail)) {
+            String finalRecipientEmail = toEmail;
+
+            // If no explicit email, try to resolve from booking
+            if (finalRecipientEmail == null || finalRecipientEmail.isBlank()) {
+                finalRecipientEmail = resolveGuestEmail(bookingId);
+            }
+
+            if (finalRecipientEmail != null && !finalRecipientEmail.isBlank()) {
+                mailingService.sendEmail(finalRecipientEmail, title, message);
+                log.info("Email sent to guest: {}", finalRecipientEmail);
+            } else {
+                log.warn("Email requested for guest payment notification but no email available for booking {}", bookingId);
+            }
+        }
+
+        // WebSocket is not available for guests
+        log.info("WebSocket notification skipped for guest payment (no user ID)");
+
+        return notificationMapper.toResponse(entity);
+    }
+
 
     // -------------------------------------------------------------
     // High-level Booking ID method
@@ -87,7 +131,18 @@ public class NotificationServiceImpl implements NotificationService {
         );
     }
 
+    // -------------------------------------------------------------
+    // Enhanced Internal Method with Guest Support
+    // -------------------------------------------------------------
     private NotificationResponse sendNotificationInternal(UUID userId, String toEmail, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave, Optional<BookingContextInfo> contextOpt) {
+
+        // Determine if this is a guest scenario
+        boolean isGuest = (userId == null);
+
+        if (isGuest) {
+            log.info("Guest payment notification detected - using guest notification flow");
+            return sendGuestNotification(toEmail, typeCode, title, message, bookingId, tripId, channel, sendEmail, shouldSave);
+        }
 
         NotificationDbModel entity;
 
@@ -116,6 +171,7 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
 
+        // WebSocket only for authenticated users
         webSocketService.notifyUser(userId, "NEW_NOTIFICATION");
         return notificationMapper.toResponse(entity);
     }
@@ -144,6 +200,54 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         log.warn("Could not resolve email for user {} with booking {}", userId, bookingId);
+        return null;
+    }
+
+    /**
+     * NEW: Create guest notification for payment service
+     */
+    private NotificationDbModel createGuestNotification(String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel) {
+
+        NotificationDbModel entity = new NotificationDbModel();
+        entity.setId(UUID.randomUUID());
+        entity.setChannel(channel != null ? channel : "EMAIL");
+        entity.setTitle(title);
+        entity.setMessage(message);
+        entity.setIsRead(false);
+        entity.setIsSent(true);
+        entity.setSentAt(LocalDateTime.now());
+        entity.setCreatedDate(LocalDateTime.now());
+        entity.setUpdatedDate(LocalDateTime.now());
+
+        // Try to set notification type
+        if (typeCode != null && !typeCode.trim().isEmpty()) {
+            try {
+                NotificationTypeDbModel type = notificationTypeRepository.findByCode(typeCode).orElseThrow(() -> new ResourceNotFoundException(NotificationTypeDbModel.class, typeCode));
+                entity.setType(type);
+            } catch (ResourceNotFoundException e) {
+                log.warn("Notification type {} not found for guest payment notification", typeCode);
+            }
+        }
+
+        entity.setBookingId(bookingId);
+        entity.setTripId(tripId);
+
+        return entity;
+    }
+
+    /**
+     * NEW: Resolve email for guest payment notifications
+     */
+    private String resolveGuestEmail(UUID bookingId) {
+        if (bookingId != null) {
+            Optional<BookingContextInfo> context = coreDataService.getBookingContextInfo(bookingId);
+            if (context.isPresent()) {
+                String email = context.get().getBestEmail();
+                if (email != null && !email.isBlank()) {
+                    return email;
+                }
+            }
+        }
         return null;
     }
 
