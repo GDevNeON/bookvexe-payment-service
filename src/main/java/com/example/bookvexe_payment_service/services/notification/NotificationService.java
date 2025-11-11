@@ -9,5 +9,7 @@ public interface NotificationService {
 
     NotificationResponse sendNotification(UUID userId, String toEmail, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave);
 
+    NotificationResponse sendGuestNotification(String toEmail, String typeCode, String title, String message, UUID bookingId, UUID tripId, String channel, Boolean sendEmail, Boolean shouldSave);
+
     NotificationResponse sendNotificationByBookingId(String typeCode, String notificationTitle, String notificationMessage, UUID bookingId, String channel, Boolean sendEmail, Boolean shouldSave);
 }

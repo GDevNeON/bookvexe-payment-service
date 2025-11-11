@@ -27,8 +27,7 @@ public class AdminController {
     @PostMapping("/test-notification")
     public Map<String, Object> testNotificationUnified(@RequestParam(required = false) UUID userId, @RequestParam(required = false) String toEmail, @RequestParam(required = false, defaultValue = "TEST_NOTIFICATION") String typeCode, @RequestParam(required = false, defaultValue = "false") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false) UUID bookingId, @RequestParam(required = false) UUID tripId, @RequestParam(required = false, defaultValue = "CHANNEL_TEST") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave) {
 
-//        UUID authenticatedUserId = getAuthenticatedUserId(authentication);
-        UUID authenticatedUserId = userId;
+        UUID authenticatedUserId = userId; // In payment service, we use provided userId directly
         UUID targetUserId = userId != null ? userId : authenticatedUserId;
 
         String notificationTitle = title != null ? title : "Test Notification - " + typeCode;
@@ -38,8 +37,17 @@ public class AdminController {
             NotificationResponse response;
             String emailDetail = "N/A";
             String emailResolution = "not requested";
+            String userType = "authenticated";
 
-            if (Boolean.TRUE.equals(sendEmail)) {
+            // NEW: Handle guest scenario
+            if (targetUserId == null) {
+                userType = "guest";
+                response = notificationService.sendGuestNotification(toEmail, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, sendEmail, shouldSave);
+                emailDetail = Boolean.TRUE.equals(sendEmail) ? (toEmail != null ? "Sent to: " + toEmail : "Attempted booking lookup") : "Email disabled";
+                emailResolution = "guest_mode";
+            }
+            // Existing logic
+            else if (Boolean.TRUE.equals(sendEmail)) {
                 if (toEmail != null && !toEmail.isBlank()) {
                     response = notificationService.sendNotification(targetUserId, toEmail, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, true, shouldSave);
                     emailDetail = "Sent to Override: " + toEmail;
@@ -55,11 +63,31 @@ public class AdminController {
                 emailResolution = "disabled";
             }
 
-            return Map.of("status", "success", "message", "Notification sent successfully", "notification", response, "details", Map.of("targetUserId", targetUserId, "typeCode", typeCode, "sendEmailMode", emailDetail, "emailResolution", emailResolution, "savedToDB", shouldSave));
+            return Map.of("status", "success", "message", "Notification sent successfully", "notification", response, "details", Map.of("userType", userType, "targetUserId", targetUserId, "typeCode", typeCode, "sendEmailMode", emailDetail, "emailResolution", emailResolution, "savedToDB", shouldSave));
 
         } catch (Exception e) {
             log.error("Failed to send notification for user {}: {}", targetUserId, e.getMessage(), e);
             return Map.of("status", "error", "message", "Failed to send notification: " + e.getMessage());
+        }
+    }
+
+    // NEW: Add guest notification test for payment service
+    @PostMapping("/test-guest-notification")
+    public Map<String, Object> testGuestNotification(@RequestParam(required = false) String toEmail, @RequestParam(required = false, defaultValue = "PAYMENT_GUEST_NOTIFICATION") String typeCode, @RequestParam(required = false, defaultValue = "true") Boolean sendEmail, @RequestParam(required = false) String title, @RequestParam(required = false) String message, @RequestParam(required = false) UUID bookingId, @RequestParam(required = false) UUID tripId, @RequestParam(required = false, defaultValue = "EMAIL") String channel, @RequestParam(required = false, defaultValue = "false") Boolean shouldSave) {
+
+        String notificationTitle = title != null ? title : "Payment Guest Test - " + typeCode;
+        String notificationMessage = message != null ? message : "Payment Guest Notification Type: " + typeCode + " | Time: " + LocalDateTime.now();
+
+        try {
+            NotificationResponse response = notificationService.sendGuestNotification(toEmail, typeCode, notificationTitle, notificationMessage, bookingId, tripId, channel, sendEmail, shouldSave);
+
+            String emailDetail = Boolean.TRUE.equals(sendEmail) ? (toEmail != null ? "Sent to: " + toEmail : "Attempted booking lookup") : "Email disabled";
+
+            return Map.of("status", "success", "message", "Guest payment notification sent successfully", "notification", response, "details", Map.of("userType", "guest", "toEmail", toEmail != null ? toEmail : "not provided", "typeCode", typeCode, "sendEmailMode", emailDetail, "savedToDB", shouldSave, "bookingId", bookingId, "note", "Guest payment notifications cannot be saved to DB or use WebSocket"));
+
+        } catch (Exception e) {
+            log.error("Failed to send guest payment notification: {}", e.getMessage(), e);
+            return Map.of("status", "error", "message", "Failed to send guest payment notification: " + e.getMessage());
         }
     }
 
