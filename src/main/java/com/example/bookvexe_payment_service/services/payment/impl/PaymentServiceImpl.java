@@ -7,9 +7,11 @@ import com.example.bookvexe_payment_service.models.db.PaymentMethodDbModel;
 import com.example.bookvexe_payment_service.models.dto.payment.*;
 import com.example.bookvexe_payment_service.repositories.payment.PaymentMethodRepository;
 import com.example.bookvexe_payment_service.repositories.payment.PaymentRepository;
+import com.example.bookvexe_payment_service.services.notification.NotificationService;
 import com.example.bookvexe_payment_service.services.payment.PaymentService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,10 +26,12 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final NotificationService notificationService;
     private final PaymentMapper paymentMapper;
 
     @Override
@@ -65,6 +69,25 @@ public class PaymentServiceImpl implements PaymentService {
         entity.setMethod(method);
 
         PaymentDbModel saved = paymentRepository.save(entity);
+
+        // ADD NOTIFICATION: Payment Completed
+        try {
+            // Use the booking-based notification method which handles both registered and guest users
+            notificationService.sendNotificationByBookingId(
+                "TYPE_PAYMENT_SUCCESS",
+                "Thanh toán thành công",
+                "Thanh toán của bạn đã được xử lý thành công. Mã giao dịch: " + saved.getTransactionCode() +
+                    ". Số tiền: " + saved.getAmount() + " VND.",
+                saved.getBookingId(),
+                "APP",
+                true,   // sendEmail
+                true    // shouldSave (will be skipped for guests automatically)
+            );
+        } catch (Exception e) {
+            log.error("Failed to send payment completion notification: {}", e.getMessage(), e);
+            // Don't throw - notification failure shouldn't break payment creation
+        }
+
         return paymentMapper.toResponse(saved);
     }
 
@@ -72,6 +95,9 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse update(UUID id, PaymentUpdate updateDto) {
         PaymentDbModel entity = paymentRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException(PaymentDbModel.class, id));
+
+        // Capture old status for comparison
+        String oldStatus = entity.getStatus();
 
         Optional.ofNullable(updateDto.getAmount()).ifPresent(entity::setAmount);
         Optional.ofNullable(updateDto.getStatus()).ifPresent(entity::setStatus);
@@ -86,6 +112,26 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         PaymentDbModel updated = paymentRepository.save(entity);
+
+        // ADD NOTIFICATION: Payment Status Changed
+        if (!oldStatus.equals(updated.getStatus())) {
+            try {
+                String statusMessage = getStatusMessage(updated.getStatus());
+                notificationService.sendNotificationByBookingId(
+                    "TYPE_PAYMENT_STATUS_CHANGED",
+                    "Trạng thái thanh toán thay đổi",
+                    "Trạng thái thanh toán của bạn đã thay đổi: " + statusMessage +
+                        ". Mã giao dịch: " + updated.getTransactionCode(),
+                    updated.getBookingId(),
+                    "APP",
+                    true,   // sendEmail
+                    true    // shouldSave
+                );
+            } catch (Exception e) {
+                log.error("Failed to send payment status change notification: {}", e.getMessage(), e);
+            }
+        }
+
         return paymentMapper.toResponse(updated);
     }
 
@@ -147,5 +193,15 @@ public class PaymentServiceImpl implements PaymentService {
         Sort.Direction direction = Sort.Direction.fromString(query.getSortDirection());
         Sort sort = Sort.by(direction, query.getSortBy());
         return PageRequest.of(query.getPage(), query.getSize(), sort);
+    }
+
+    private String getStatusMessage(String status) {
+        return switch (status.toUpperCase()) {
+            case "SUCCESS" -> "Thành công";
+            case "FAILED" -> "Thất bại";
+            case "PENDING" -> "Đang chờ xử lý";
+            case "CANCELLED" -> "Đã hủy";
+            default -> status;
+        };
     }
 }
