@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/bookvexedb_j2e
     username: postgres
-    password: ""
+    password: root
   jpa:
     show-sql: true
     hibernate:
@@ -19,6 +19,6 @@ vnpay:
   tmnCode: Q1IN2L3L
   hashSecret: K2TVGW712204XAV8CRRO5G83CK1MDYT4
   payUrl: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-  returnUrl: https://renee-arumlike-azariah.ngrok-free.dev/api/vnpay-ipn/
+  returnUrl: https://renee-arumlike-azariah.ngrok-free.dev/api/vnpay-return/
   ipnUrl: https://renee-arumlike-azariah.ngrok-free.dev/api/vnpay-ipn/
   frontendReturnUrl: http://localhost:5173/payment/vnpay-return

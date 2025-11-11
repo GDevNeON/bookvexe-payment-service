@@ -67,6 +67,18 @@ public class PaymentMethodController {
         return ResponseEntity.ok().build();
     }
 
+    @PatchMapping("/activate/{id}")
+    public ResponseEntity<Void> activatePatch(@PathVariable UUID id) {
+        paymentMethodService.activate(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/deactivate/{id}")
+    public ResponseEntity<Void> deactivatePatch(@PathVariable UUID id) {
+        paymentMethodService.deactivate(id);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/select")
     public ResponseEntity<List<PaymentMethodSelectResponse>> findAllForSelect() {
         return ResponseEntity.ok(paymentMethodService.findAllForSelect());
