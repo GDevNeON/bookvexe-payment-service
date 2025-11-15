@@ -1,5 +1,6 @@
 package com.example.bookvexe_payment_service.controllers.payment;
 
+import com.example.bookvexe_payment_service.services.payment.PaymentService;
 import com.example.bookvexe_payment_service.utils.VNPayUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +18,12 @@ import java.nio.charset.StandardCharsets;
 @RestController
 @RequestMapping({"/api", ""})
 public class VNPayController {
+
+    private final PaymentService paymentService;
+
+    public VNPayController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
 
     @Value("${vnpay.tmnCode}")
     private String vnp_TmnCode;
@@ -95,7 +102,35 @@ public class VNPayController {
 
         String orderId = params.getOrDefault("vnp_TxnRef", "");
         String responseCode = params.getOrDefault("vnp_ResponseCode", "");
-        String status = (signValue.equals(vnp_SecureHash) && "00".equals(responseCode)) ? "success" : "failed";
+        String status;
+
+        boolean validSignature = signValue.equals(vnp_SecureHash);
+
+        if (validSignature && !orderId.isEmpty()) {
+            try {
+                if ("00".equals(responseCode)) {
+                    status = "success";
+                    paymentService.updateStatusByTransactionCode(orderId, "SUCCESS", LocalDateTime.now());
+                } else {
+                    status = "failed";
+                    if ("24".equals(responseCode)) {
+                        // Customer cancelled the transaction
+                        paymentService.updateStatusByTransactionCode(orderId, "CANCELLED", null);
+                    } else if ("11".equals(responseCode)) {
+                        // Payment timeout - remove the pending payment record
+                        paymentService.deleteByTransactionCode(orderId);
+                    } else {
+                        // Other error codes
+                        paymentService.updateStatusByTransactionCode(orderId, "FAILED", null);
+                    }
+                }
+            } catch (Exception ex) {
+                // In case of any problem updating payment, still continue redirecting user
+                status = ("00".equals(responseCode) && validSignature) ? "success" : "failed";
+            }
+        } else {
+            status = "failed";
+        }
 
         String redirectUrl = String.format("%s?orderId=%s&status=%s&code=%s",
                 frontendReturnUrl,
@@ -110,6 +145,55 @@ public class VNPayController {
 
     @RequestMapping(value = {"/vnpay-ipn", "/vnpay-ipn/"}, method = {RequestMethod.GET, RequestMethod.POST})
     public String handleIpn(HttpServletRequest request) {
+        Map<String, String> params = new HashMap<>();
+        for (Enumeration<String> paramNames = request.getParameterNames(); paramNames.hasMoreElements();) {
+            String paramName = paramNames.nextElement();
+            params.put(paramName, request.getParameter(paramName));
+        }
+
+        String vnp_SecureHash = params.remove("vnp_SecureHash");
+        params.remove("vnp_SecureHashType");
+
+        List<String> fieldNames = new ArrayList<>(params.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+        for (Iterator<String> it = fieldNames.iterator(); it.hasNext();) {
+            String fieldName = it.next();
+            String fieldValue = params.get(fieldName);
+            if (fieldValue != null && fieldValue.length() > 0) {
+                String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII);
+                hashData.append(fieldName).append('=')
+                        .append(encodedValue);
+                if (it.hasNext()) hashData.append('&');
+            }
+        }
+
+        String signValue = VNPayUtil.hmacSHA512(secretKey, hashData.toString());
+
+        String orderId = params.getOrDefault("vnp_TxnRef", "");
+        String responseCode = params.getOrDefault("vnp_ResponseCode", "");
+
+        boolean validSignature = signValue.equals(vnp_SecureHash);
+
+        if (validSignature && !orderId.isEmpty()) {
+            try {
+                if ("00".equals(responseCode)) {
+                    paymentService.updateStatusByTransactionCode(orderId, "SUCCESS", LocalDateTime.now());
+                } else {
+                    if ("24".equals(responseCode)) {
+                        paymentService.updateStatusByTransactionCode(orderId, "CANCELLED", null);
+                    } else if ("11".equals(responseCode)) {
+                        paymentService.deleteByTransactionCode(orderId);
+                    } else {
+                        paymentService.updateStatusByTransactionCode(orderId, "FAILED", null);
+                    }
+                }
+            } catch (Exception ex) {
+                // ignore errors to avoid breaking VNPay callback contract
+            }
+        }
+
+        // Always respond with success code so VNPay stops retrying
         return "responseCode=00";
     }
 }

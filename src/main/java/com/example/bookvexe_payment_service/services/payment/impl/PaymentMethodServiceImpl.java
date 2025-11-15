@@ -60,7 +60,8 @@ public class PaymentMethodServiceImpl implements PaymentMethodService {
 
     @Override
     public PaymentMethodResponse update(UUID id, PaymentMethodUpdate updateDto) {
-        PaymentMethodDbModel entity = paymentMethodRepository.findByIdAndNotDeleted(id)
+        // Allow updating even if currently deactivated (isDeleted = true)
+        PaymentMethodDbModel entity = paymentMethodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(PaymentMethodDbModel.class, id));
         entity.setCode(updateDto.getCode());
         entity.setName(updateDto.getName());

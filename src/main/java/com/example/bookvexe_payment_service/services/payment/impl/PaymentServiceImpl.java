@@ -19,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -71,21 +72,23 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentDbModel saved = paymentRepository.save(entity);
 
         // ADD NOTIFICATION: Payment Completed
-        try {
-            // Use the booking-based notification method which handles both registered and guest users
-            notificationService.sendNotificationByBookingId(
-                "TYPE_PAYMENT_SUCCESS",
-                "Thanh toán thành công",
-                "Thanh toán của bạn đã được xử lý thành công. Mã giao dịch: " + saved.getTransactionCode() +
-                    ". Số tiền: " + saved.getAmount() + " VND.",
-                saved.getBookingId(),
-                "APP",
-                true,   // sendEmail
-                true    // shouldSave (will be skipped for guests automatically)
-            );
-        } catch (Exception e) {
-            log.error("Failed to send payment completion notification: {}", e.getMessage(), e);
-            // Don't throw - notification failure shouldn't break payment creation
+        if ("SUCCESS".equalsIgnoreCase(saved.getStatus())) {
+            try {
+                // Use the booking-based notification method which handles both registered and guest users
+                notificationService.sendNotificationByBookingId(
+                    "TYPE_PAYMENT_SUCCESS",
+                    "Thanh toán thành công",
+                    "Thanh toán của bạn đã được xử lý thành công. Mã giao dịch: " + saved.getTransactionCode() +
+                        ". Số tiền: " + saved.getAmount() + " VND.",
+                    saved.getBookingId(),
+                    "APP",
+                    true,   // sendEmail
+                    true    // shouldSave (will be skipped for guests automatically)
+                );
+            } catch (Exception e) {
+                log.error("Failed to send payment completion notification: {}", e.getMessage(), e);
+                // Don't throw - notification failure shouldn't break payment creation
+            }
         }
 
         return paymentMapper.toResponse(saved);
@@ -168,6 +171,24 @@ public class PaymentServiceImpl implements PaymentService {
         Pageable pageable = buildPageable(query);
         Page<PaymentDbModel> entities = paymentRepository.findAll(spec, pageable);
         return entities.map(paymentMapper::toSelectResponse);
+    }
+
+    @Override
+    public PaymentResponse updateStatusByTransactionCode(String transactionCode, String status, LocalDateTime paidAt) {
+        PaymentDbModel entity = paymentRepository.findByTransactionCodeAndIsDeletedFalse(transactionCode)
+                .orElseThrow(() -> new ResourceNotFoundException(PaymentDbModel.class, transactionCode));
+
+        PaymentUpdate updateDto = new PaymentUpdate();
+        updateDto.setStatus(status);
+        updateDto.setPaidAt(paidAt);
+
+        return update(entity.getId(), updateDto);
+    }
+
+    @Override
+    public void deleteByTransactionCode(String transactionCode) {
+        paymentRepository.findByTransactionCodeAndIsDeletedFalse(transactionCode)
+                .ifPresent(paymentRepository::softDelete);
     }
 
     private Specification<PaymentDbModel> buildSpecification(PaymentQuery query) {
