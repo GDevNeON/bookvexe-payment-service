@@ -1,11 +1,8 @@
 spring:
-  application:
-    name: bookvexe-payment-service
-
   datasource:
-    url: jdbc:postgresql://localhost:5441/bookvexedb_j2e
-    username: root
-    password: nopass
+    url: jdbc:postgresql://postgres-service:5432/bookvexedb_j2e
+    username: postgres
+    password: root
   jpa:
     show-sql: true
     hibernate:
@@ -17,21 +14,13 @@ spring:
 
   kafka:
     producer:
-      bootstrap-servers: localhost:9092
+      bootstrap-servers: kafka-service:9092
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 server:
   port: 8084
 
-#vnpay:
-#  tmnCode: Q1IN2L3L
-#  hashSecret: K2TVGW712204XAV8CRRO5G83CK1MDYT4
-#  payUrl: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-#  returnUrl: https://renee-arumlike-azariah.ngrok-free.dev/api/vnpay-return/
-#  ipnUrl: https://renee-arumlike-azariah.ngrok-free.dev/api/vnpay-ipn/
-#  frontendReturnUrl: http://localhost:5173/payment/vnpay-return
-#
 vnpay:
   tmnCode: VWJ2IOSO
   hashSecret: AMFRNXTX77SU7EBXP68PFQMLEQ204X2P
@@ -39,4 +28,3 @@ vnpay:
   returnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-return/
   ipnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-ipn/
   frontendReturnUrl: http://localhost:5173/payment/vnpay-return
-
