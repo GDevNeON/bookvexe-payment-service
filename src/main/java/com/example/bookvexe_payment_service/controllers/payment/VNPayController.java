@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentResponse;
 import com.example.bookvexe_payment_service.services.payment.PaymentService;
 import com.example.bookvexe_payment_service.utils.VNPayUtil;
 
@@ -54,6 +55,33 @@ public class VNPayController {
 
     @Value("${vnpay.frontendReturnUrl}")
     private String frontendReturnUrl;
+
+    @Value("${vnpay.frontendCancelUrl}")
+    private String frontendCancelUrl;
+
+    @GetMapping("/payment-status")
+    public Map<String, Object> getPaymentStatus(@RequestParam("orderId") String orderId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // Check if payment exists and get its status
+            PaymentResponse payment = paymentService.findByTransactionCode(orderId);
+            if (payment != null) {
+                response.put("status", payment.getStatus());
+                response.put("orderId", orderId);
+                response.put("exists", true);
+            } else {
+                response.put("status", "NOT_FOUND");
+                response.put("orderId", orderId);
+                response.put("exists", false);
+            }
+        } catch (Exception e) {
+            response.put("status", "ERROR");
+            response.put("orderId", orderId);
+            response.put("exists", false);
+            response.put("error", e.getMessage());
+        }
+        return response;
+    }
 
     @GetMapping("/create-payment")
     public Map<String, Object> createPayment(HttpServletRequest req,
@@ -115,12 +143,20 @@ public class VNPayController {
 
         String orderId = params.getOrDefault("vnp_TxnRef", "");
         String responseCode = params.getOrDefault("vnp_ResponseCode", "");
+        String transactionStatus = params.getOrDefault("vnp_TransactionStatus", "");
         String status;
 
         boolean validSignature = signValue.equals(vnp_SecureHash);
 
-        System.out.println("[VNPay] Return validation - OrderId: " + orderId + ", ResponseCode: " + responseCode);
+        System.out.println("[VNPay] Return validation - OrderId: " + orderId + ", ResponseCode: " + responseCode
+                + ", TransactionStatus: " + transactionStatus);
         System.out.println("[VNPay] Signature validation: " + validSignature);
+        System.out.println("[VNPay] frontendCancelUrl: " + frontendCancelUrl);
+        System.out.println("[VNPay] frontendReturnUrl: " + frontendReturnUrl);
+
+        // Check if transaction was cancelled (TransactionStatus = 02)
+        boolean isCancelled = "02".equals(transactionStatus) || "24".equals(responseCode);
+        System.out.println("[VNPay] isCancelled: " + isCancelled);
 
         // For VNPay sandbox, prioritize response code over signature validation
         if (!orderId.isEmpty() && "00".equals(responseCode)) {
@@ -139,9 +175,10 @@ public class VNPayController {
                     paymentService.updateStatusByTransactionCode(orderId, "SUCCESS", LocalDateTime.now());
                 } else {
                     status = "failed";
-                    if ("24".equals(responseCode)) {
+                    if (isCancelled) {
                         // Customer cancelled the transaction
                         paymentService.updateStatusByTransactionCode(orderId, "CANCELLED", null);
+                        System.out.println("[VNPay] Payment cancelled for order: " + orderId);
                     } else if ("11".equals(responseCode)) {
                         // Payment timeout - remove the pending payment record
                         paymentService.deleteByTransactionCode(orderId);
@@ -158,11 +195,24 @@ public class VNPayController {
             status = "failed";
         }
 
-        String redirectUrl = String.format("%s?orderId=%s&status=%s&code=%s",
-                frontendReturnUrl,
-                orderId,
-                status,
-                responseCode);
+        // Determine redirect URL based on cancellation status
+        String redirectUrl;
+        if (isCancelled) {
+            // User cancelled payment - redirect to booking page
+            redirectUrl = String.format("%s?cancelled=true&orderId=%s&code=%s&transactionStatus=%s",
+                    frontendCancelUrl,
+                    orderId,
+                    responseCode,
+                    transactionStatus);
+            System.out.println("[VNPay] Redirecting to cancel URL: " + redirectUrl);
+        } else {
+            // Success or other failures - redirect to vnpay-return page for processing
+            redirectUrl = String.format("%s?orderId=%s&status=%s&code=%s",
+                    frontendReturnUrl,
+                    orderId,
+                    status,
+                    responseCode);
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.add("Location", redirectUrl);
@@ -199,16 +249,22 @@ public class VNPayController {
 
         String orderId = params.getOrDefault("vnp_TxnRef", "");
         String responseCode = params.getOrDefault("vnp_ResponseCode", "");
+        String transactionStatus = params.getOrDefault("vnp_TransactionStatus", "");
 
         boolean validSignature = signValue.equals(vnp_SecureHash);
+        boolean isCancelled = "02".equals(transactionStatus) || "24".equals(responseCode);
+
+        System.out.println("[VNPay] IPN validation - OrderId: " + orderId + ", ResponseCode: " + responseCode
+                + ", TransactionStatus: " + transactionStatus);
 
         if (validSignature && !orderId.isEmpty()) {
             try {
                 if ("00".equals(responseCode)) {
                     paymentService.updateStatusByTransactionCode(orderId, "SUCCESS", LocalDateTime.now());
                 } else {
-                    if ("24".equals(responseCode)) {
+                    if (isCancelled) {
                         paymentService.updateStatusByTransactionCode(orderId, "CANCELLED", null);
+                        System.out.println("[VNPay] IPN - Payment cancelled for order: " + orderId);
                     } else if ("11".equals(responseCode)) {
                         paymentService.deleteByTransactionCode(orderId);
                     } else {
