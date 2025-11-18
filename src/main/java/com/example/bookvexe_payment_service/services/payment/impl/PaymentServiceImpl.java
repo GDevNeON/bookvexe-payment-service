@@ -1,17 +1,11 @@
 package com.example.bookvexe_payment_service.services.payment.impl;
 
-import com.example.bookvexe_payment_service.exceptions.ResourceNotFoundException;
-import com.example.bookvexe_payment_service.mappers.PaymentMapper;
-import com.example.bookvexe_payment_service.models.db.PaymentDbModel;
-import com.example.bookvexe_payment_service.models.db.PaymentMethodDbModel;
-import com.example.bookvexe_payment_service.models.dto.payment.*;
-import com.example.bookvexe_payment_service.repositories.payment.PaymentMethodRepository;
-import com.example.bookvexe_payment_service.repositories.payment.PaymentRepository;
-import com.example.bookvexe_payment_service.services.notification.NotificationService;
-import com.example.bookvexe_payment_service.services.payment.PaymentService;
-import jakarta.persistence.criteria.Predicate;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,11 +13,23 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import com.example.bookvexe_payment_service.exceptions.ResourceNotFoundException;
+import com.example.bookvexe_payment_service.mappers.PaymentMapper;
+import com.example.bookvexe_payment_service.models.db.PaymentDbModel;
+import com.example.bookvexe_payment_service.models.db.PaymentMethodDbModel;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentCreate;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentQuery;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentResponse;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentSelectResponse;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentUpdate;
+import com.example.bookvexe_payment_service.repositories.payment.PaymentMethodRepository;
+import com.example.bookvexe_payment_service.repositories.payment.PaymentRepository;
+import com.example.bookvexe_payment_service.services.notification.NotificationService;
+import com.example.bookvexe_payment_service.services.payment.PaymentService;
+
+import jakarta.persistence.criteria.Predicate;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -74,16 +80,17 @@ public class PaymentServiceImpl implements PaymentService {
         // ADD NOTIFICATION: Payment Completed
         if ("SUCCESS".equalsIgnoreCase(saved.getStatus())) {
             try {
-                // Use the booking-based notification method which handles both registered and guest users
+                // Use the booking-based notification method which handles both registered and
+                // guest users
                 notificationService.sendNotificationByBookingId(
-                    "TYPE_PAYMENT_SUCCESS",
-                    "Thanh toán thành công",
-                    "Thanh toán của bạn đã được xử lý thành công. Mã giao dịch: " + saved.getTransactionCode() +
-                        ". Số tiền: " + saved.getAmount() + " VND.",
-                    saved.getBookingId(),
-                    "APP",
-                    true,   // sendEmail
-                    true    // shouldSave (will be skipped for guests automatically)
+                        "TYPE_PAYMENT_SUCCESS",
+                        "Thanh toán thành công",
+                        "Thanh toán của bạn đã được xử lý thành công. Mã giao dịch: " + saved.getTransactionCode() +
+                                ". Số tiền: " + saved.getAmount() + " VND.",
+                        saved.getBookingId(),
+                        "APP",
+                        true, // sendEmail
+                        true // shouldSave (will be skipped for guests automatically)
                 );
             } catch (Exception e) {
                 log.error("Failed to send payment completion notification: {}", e.getMessage(), e);
@@ -110,7 +117,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (updateDto.getMethodId() != null) {
             PaymentMethodDbModel method = paymentMethodRepository.findById(updateDto.getMethodId())
-                    .orElseThrow(() -> new ResourceNotFoundException(PaymentMethodDbModel.class, updateDto.getMethodId()));
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException(PaymentMethodDbModel.class, updateDto.getMethodId()));
             entity.setMethod(method);
         }
 
@@ -121,14 +129,14 @@ public class PaymentServiceImpl implements PaymentService {
             try {
                 String statusMessage = getStatusMessage(updated.getStatus());
                 notificationService.sendNotificationByBookingId(
-                    "TYPE_PAYMENT_STATUS_CHANGED",
-                    "Trạng thái thanh toán thay đổi",
-                    "Trạng thái thanh toán của bạn đã thay đổi: " + statusMessage +
-                        ". Mã giao dịch: " + updated.getTransactionCode(),
-                    updated.getBookingId(),
-                    "APP",
-                    true,   // sendEmail
-                    true    // shouldSave
+                        "TYPE_PAYMENT_STATUS_CHANGED",
+                        "Trạng thái thanh toán thay đổi",
+                        "Trạng thái thanh toán của bạn đã thay đổi: " + statusMessage +
+                                ". Mã giao dịch: " + updated.getTransactionCode(),
+                        updated.getBookingId(),
+                        "APP",
+                        true, // sendEmail
+                        true // shouldSave
                 );
             } catch (Exception e) {
                 log.error("Failed to send payment status change notification: {}", e.getMessage(), e);
@@ -191,6 +199,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .ifPresent(paymentRepository::softDelete);
     }
 
+    @Override
+    public PaymentResponse findByTransactionCode(String transactionCode) {
+        PaymentDbModel entity = paymentRepository.findByTransactionCodeAndIsDeletedFalse(transactionCode)
+                .orElse(null);
+        return entity != null ? paymentMapper.toResponse(entity) : null;
+    }
+
     private Specification<PaymentDbModel> buildSpecification(PaymentQuery query) {
         return (root, cq, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -204,7 +219,8 @@ public class PaymentServiceImpl implements PaymentService {
                 predicates.add(cb.equal(root.get("status"), query.getStatus()));
             }
             if (query.getTransactionCode() != null && !query.getTransactionCode().isEmpty()) {
-                predicates.add(cb.like(cb.lower(root.get("transactionCode")), "%" + query.getTransactionCode().toLowerCase() + "%"));
+                predicates.add(cb.like(cb.lower(root.get("transactionCode")),
+                        "%" + query.getTransactionCode().toLowerCase() + "%"));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

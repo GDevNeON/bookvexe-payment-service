@@ -1,11 +1,16 @@
 package com.example.bookvexe_payment_service.services.payment;
 
-import com.example.bookvexe_payment_service.models.dto.payment.*;
-import org.springframework.data.domain.Page;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentCreate;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentQuery;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentResponse;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentSelectResponse;
+import com.example.bookvexe_payment_service.models.dto.payment.PaymentUpdate;
 
 public interface PaymentService {
     List<PaymentResponse> findAll();
@@ -31,4 +36,6 @@ public interface PaymentService {
     PaymentResponse updateStatusByTransactionCode(String transactionCode, String status, LocalDateTime paidAt);
 
     void deleteByTransactionCode(String transactionCode);
+
+    PaymentResponse findByTransactionCode(String transactionCode);
 }
