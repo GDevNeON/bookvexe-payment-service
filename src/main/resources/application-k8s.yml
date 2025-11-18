@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://postgres-service:5432/bookvexedb_j2e
+    url: jdbc:postgresql://postgres-service:5441/bookvexedb_j2e
     username: postgres
     password: root
   jpa:
@@ -20,6 +20,8 @@ spring:
 
 server:
   port: 8084
+  servlet:
+    context-path: /api/bookvexe-payment-service
 
 vnpay:
   tmnCode: VWJ2IOSO
