@@ -23,6 +23,17 @@ server:
   servlet:
     context-path: /api/bookvexe-payment-service
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
 vnpay:
   tmnCode: VWJ2IOSO
   hashSecret: AMFRNXTX77SU7EBXP68PFQMLEQ204X2P
@@ -30,3 +41,4 @@ vnpay:
   returnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-return/
   ipnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-ipn/
   frontendReturnUrl: http://localhost:5173/payment/vnpay-return
+  frontendCancelUrl: http://localhost:5173/booking

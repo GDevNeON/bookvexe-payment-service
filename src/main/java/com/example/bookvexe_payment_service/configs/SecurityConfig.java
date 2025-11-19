@@ -36,7 +36,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173", // BMS User
-                "http://localhost:5174"  // BMS Admin
+                "http://localhost:5174", // BMS Admin
+                "http://localhost:8080"  // Gateway/Ingress
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
