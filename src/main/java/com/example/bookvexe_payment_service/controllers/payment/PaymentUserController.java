@@ -35,7 +35,7 @@ public class PaymentUserController {
         if (req.getMethodId() != null) {
             create.setMethodId(req.getMethodId());
         } else if (req.getMethodCode() != null) {
-            Optional<PaymentMethodDbModel> methodOpt = paymentMethodRepository.findByCode(req.getMethodCode());
+            Optional<PaymentMethodDbModel> methodOpt = paymentMethodRepository.findByCodeIgnoreCase(req.getMethodCode());
             if (methodOpt.isPresent()) {
                 create.setMethodId(methodOpt.get().getId());
             } else {
