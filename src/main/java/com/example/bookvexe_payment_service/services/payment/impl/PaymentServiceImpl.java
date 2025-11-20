@@ -99,8 +99,8 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentDbModel entity = paymentRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException(PaymentDbModel.class, id));
 
-        // Capture old status for comparison
-        String oldStatus = entity.getStatus();
+//        // Capture old status for comparison
+//        String oldStatus = entity.getStatus();
 
         Optional.ofNullable(updateDto.getAmount()).ifPresent(entity::setAmount);
         Optional.ofNullable(updateDto.getStatus()).ifPresent(entity::setStatus);
@@ -116,24 +116,24 @@ public class PaymentServiceImpl implements PaymentService {
 
         PaymentDbModel updated = paymentRepository.save(entity);
 
-        // ADD NOTIFICATION: Payment Status Changed
-        if (!oldStatus.equals(updated.getStatus())) {
-            try {
-                String statusMessage = getStatusMessage(updated.getStatus());
-                notificationService.sendNotificationByBookingId(
-                    "TYPE_PAYMENT_STATUS_CHANGED",
-                    "Trạng thái thanh toán thay đổi",
-                    "Trạng thái thanh toán của bạn đã thay đổi: " + statusMessage +
-                        ". Mã giao dịch: " + updated.getTransactionCode(),
-                    updated.getBookingId(),
-                    "APP",
-                    true,   // sendEmail
-                    true    // shouldSave
-                );
-            } catch (Exception e) {
-                log.error("Failed to send payment status change notification: {}", e.getMessage(), e);
-            }
-        }
+//        // ADD NOTIFICATION: Payment Status Changed
+//        if (!oldStatus.equals(updated.getStatus())) {
+//            try {
+//                String statusMessage = getStatusMessage(updated.getStatus());
+//                notificationService.sendNotificationByBookingId(
+//                    "TYPE_PAYMENT_STATUS_CHANGED",
+//                    "Trạng thái thanh toán thay đổi",
+//                    "Trạng thái thanh toán của bạn đã thay đổi: " + statusMessage +
+//                        ". Mã giao dịch: " + updated.getTransactionCode(),
+//                    updated.getBookingId(),
+//                    "APP",
+//                    true,   // sendEmail
+//                    true    // shouldSave
+//                );
+//            } catch (Exception e) {
+//                log.error("Failed to send payment status change notification: {}", e.getMessage(), e);
+//            }
+//        }
 
         return paymentMapper.toResponse(updated);
     }
@@ -216,13 +216,13 @@ public class PaymentServiceImpl implements PaymentService {
         return PageRequest.of(query.getPage(), query.getSize(), sort);
     }
 
-    private String getStatusMessage(String status) {
-        return switch (status.toUpperCase()) {
-            case "SUCCESS" -> "Thành công";
-            case "FAILED" -> "Thất bại";
-            case "PENDING" -> "Đang chờ xử lý";
-            case "CANCELLED" -> "Đã hủy";
-            default -> status;
-        };
-    }
+//    private String getStatusMessage(String status) {
+//        return switch (status.toUpperCase()) {
+//            case "SUCCESS" -> "Thành công";
+//            case "FAILED" -> "Thất bại";
+//            case "PENDING" -> "Đang chờ xử lý";
+//            case "CANCELLED" -> "Đã hủy";
+//            default -> status;
+//        };
+//    }
 }
