@@ -3,7 +3,7 @@ spring:
     name: bookvexe-payment-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/bookvexedb_j2e
+    url: jdbc:postgresql://localhost:5441/bookvexedb_j2e
     username: postgres
     password: root
   jpa:
@@ -36,7 +36,7 @@ vnpay:
   tmnCode: VWJ2IOSO
   hashSecret: AMFRNXTX77SU7EBXP68PFQMLEQ204X2P
   payUrl: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-  returnUrl: https://renee-arumlike-azariah.ngrok-free.dev/api/vnpay-return/
-  ipnUrl: https://renee-arumlike-azariah.ngrok-free.dev/api/vnpay-ipn/
+  returnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-return/
+  ipnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-ipn/
   frontendReturnUrl: http://localhost:5173/payment/vnpay-return
   frontendCancelUrl: http://localhost:5173/booking

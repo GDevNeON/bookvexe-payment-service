@@ -103,6 +103,8 @@ public class VNPayController {
         vnp_Params.put("vnp_ReturnUrl", vnp_ReturnUrl);
         vnp_Params.put("vnp_IpAddr", ipAddress);
 
+        System.out.println("DEBUG: vnp_ReturnUrl used: " + vnp_ReturnUrl); // Add this line
+
         String vnp_CreateDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
 
@@ -278,5 +280,10 @@ public class VNPayController {
 
         // Always respond with success code so VNPay stops retrying
         return "responseCode=00";
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        System.out.println("DEBUG-V3: VNPayController initialized. vnp_ReturnUrl: " + vnp_ReturnUrl);
     }
 }

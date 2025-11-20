@@ -18,6 +18,27 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
+      # --- Recommended properties to prevent infinite spam/blocking ---
+      # Max number of times to retry sending a record. Set to 0 to fail fast on network error.
+      retries: 5
+
+      properties:
+        # How long to wait for a broker connection before timing out (ms).
+        # Default is often high (e.g., 30000), making the request block for too long.
+
+        delivery.timeout.ms: 5000
+
+      # How long the producer can block waiting for a send acknowledgement. Should be less than delivery-timeout-ms.
+        request.timeout.ms: 3000
+
+    consumer:
+      bootstrap-servers: kafka-service:9092
+      group-id: bookvexe-app
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
 server:
   port: 8084
   servlet:
@@ -34,20 +55,11 @@ management:
         enabled: true
       show-details: always
 
-# vnpay:
-#   tmnCode: VWJ2IOSO
-#   hashSecret: AMFRNXTX77SU7EBXP68PFQMLEQ204X2P
-#   payUrl: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-#   returnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-return/
-#   ipnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-ipn/
-#   frontendReturnUrl: http://localhost:5173/payment/vnpay-return
-#   frontendCancelUrl: http://localhost:5173/booking
-
 vnpay:
   tmnCode: VWJ2IOSO
   hashSecret: AMFRNXTX77SU7EBXP68PFQMLEQ204X2P
   payUrl: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-  returnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-return/
-  ipnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-ipn/
+  returnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/bookvexe-payment-service/api/vnpay-return/
+  ipnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/bookvexe-payment-service/api/vnpay-ipn/
   frontendReturnUrl: http://localhost:5173/payment/vnpay-return
   frontendCancelUrl: http://localhost:5173/booking

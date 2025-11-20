@@ -15,9 +15,9 @@ spec:
       containers:
         - name: bookvexe-payment-service
           image: bookvexe-payment-service:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
-            - containerPort: 5183
+            - containerPort: 8084
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "k8s"
