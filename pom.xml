@@ -85,6 +85,10 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
         <!-- Kafka Producer -->
         <dependency>
             <groupId>org.springframework.kafka</groupId>
@@ -104,6 +108,15 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>k8s</id>
+            <properties>
+                <spring.profiles.active>k8s</spring.profiles.active>
+            </properties>
+        </profile>
+    </profiles>
 
     <build>
         <plugins>

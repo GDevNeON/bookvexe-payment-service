@@ -4,8 +4,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5441/bookvexedb_j2e
-    username: root
-    password: nopass
+    username: postgres
+    password: root
   jpa:
     show-sql: true
     hibernate:
@@ -39,4 +39,4 @@ vnpay:
   returnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-return/
   ipnUrl: https://unsuccinctly-unadhering-zenaida.ngrok-free.dev/api/vnpay-ipn/
   frontendReturnUrl: http://localhost:5173/payment/vnpay-return
-
+  frontendCancelUrl: http://localhost:5173/booking

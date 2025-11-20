@@ -1,7 +1,0 @@
-spring:
-  profiles:
-    active: dev
-  application:
-    name: bookvexe-payment-service
-  config:
-    import: optional:configserver:http://localhost:8888

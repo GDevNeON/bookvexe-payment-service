@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface PaymentMethodRepository extends BaseRepository<PaymentMethodDbModel> {
     Optional<PaymentMethodDbModel> findByCode(String code);
+
+    Optional<PaymentMethodDbModel> findByCodeIgnoreCase(String code);
 }
